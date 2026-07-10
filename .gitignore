@@ -35,3 +35,11 @@ Temporary Items
 *.icloud
 
 # End of https://www.toptal.com/developers/gitignore/api/macos
+
+# Frigate runtime data
+storage/*
+!storage/.gitkeep
+
+# Exported ONNX at repo root (copy into config/model_cache/)
+*.onnx
+!config/model_cache/*.onnx
