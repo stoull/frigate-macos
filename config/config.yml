@@ -1,0 +1,82 @@
+# Frigate config for macOS M2 + apple-silicon-detector (Neural Engine via CoreML)
+# 文档: https://docs.frigate.video/configuration/object_detectors/#apple-silicon-detector
+
+mqtt:
+  enabled: false
+  # host: 127.0.0.1
+  # port: 1883
+
+# 宿主机上运行的 apple-silicon-detector，通过 ZMQ 与容器内 Frigate 通信
+detectors:
+  apple-silicon:
+    type: zmq
+    endpoint: tcp://host.docker.internal:5555
+
+# model 必须在根级别，不能嵌套在 detectors 内
+model:
+  model_type: yolo-generic
+  width: 320   # 须与导出 ONNX 时的 imgsize 一致
+  height: 320
+  input_tensor: nchw
+  input_dtype: float
+  path: /config/model_cache/yolov9-t-320.onnx
+  labelmap_path: /labelmap/coco-80.txt
+
+# macOS Docker 容器内无法做硬件解码加速
+ffmpeg:
+  hwaccel_args: []
+
+# 内置人脸识别（Mac Docker 内跑 CPU，用 small 模型）
+# 流程：YOLO 先检出 person → OpenCV 检脸 → FaceNet 比对身份
+# 注意：COCO 模型不要在 objects.track 里加 face
+face_recognition:
+  enabled: true
+  model_size: small          # Mac 无 GPU 透传，勿用 large
+  detection_threshold: 0.6   # 脸较远时可略降
+  min_area: 400              # 脸框最小像素（默认 500，Pi 近景可略降）
+  recognition_threshold: 0.85
+
+cameras:
+  picam:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://hutpi.local:8554/picam
+          input_args: preset-rtsp-restream   # 或 preset-rtsp-generic
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: true
+      width: 640
+      height: 480
+      fps: 5
+    objects:
+      track:
+        - person
+        - car
+        - dog
+        - cat
+    record:
+      enabled: true
+      continuous:
+        days: 0
+      motion:
+        days: 7
+    motion:
+      threshold: 50
+      contour_area: 30
+      improve_contrast: true
+
+auth:
+  enabled: true
+
+detect:
+  enabled: true
+
+record:
+  enabled: true
+
+version: 0.17-0
+classification:
+  custom: {}

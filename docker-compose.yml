@@ -1,0 +1,38 @@
+# Frigate on macOS M2 (Apple Silicon) + Docker Desktop
+#
+# 前置条件（在宿主机 macOS 上，不在容器内）：
+#   1. 安装 apple-silicon-detector（调用 Neural Engine / CoreML）：
+#        git clone https://github.com/frigate-nvr/apple-silicon-detector
+#        cd apple-silicon-detector && make install && make run
+#      或下载 Releases 中的 FrigateDetector.app
+#   2. 确认 detector 监听 tcp://*:5555（默认）
+#   3. 将 YOLO ONNX 模型放到 ./config/model_cache/yolo.onnx
+#   4. 先启动 detector，再 docker compose up -d
+
+services:
+  frigate:
+    container_name: frigate
+    image: ghcr.io/blakeblackshear/frigate:stable-standard-arm64
+    restart: unless-stopped
+    shm_size: "512mb"
+
+    # 容器内通过 host.docker.internal 访问宿主机上的 ZMQ detector
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "8971:8971"   # Web UI（建议开启 auth）
+      # 5000 在 macOS 上常被 AirPlay 占用，且无需暴露（见 config auth）
+      # 若必须用无鉴权 UI，可改为 "5001:5000" 或关闭 系统设置→隔空投送与接力→隔空播放接收器
+      # - "5000:5000"   # 无鉴权 UI（仅内网调试）
+      - "5001:5000"   # 无鉴权 UI（仅内网调试） 浏览器访问 http://localhost:5001
+      - "8554:8554"   # RTSP（go2rtc 扇出）
+      - "8555:8555"   # WebRTC
+
+    environment:
+      TZ: Asia/Shanghai
+      FRIGATE_RTSP_PASSWORD: "hut179"
+
+    volumes:
+      - ./config:/config
+      - ./storage:/media/frigate
